@@ -1,0 +1,1291 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FibreLab 3D — Interactive Fibre Optics Physics Laboratory</title>
+
+    <!-- Fonts & Tailwind CSS -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- CDN Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        lab: {
+                            bg: '#080d1a',
+                            card: '#0e172a',
+                            border: '#1e293b',
+                            cyan: '#06b6d4',
+                            glow: '#00f2fe',
+                            blue: '#3b82f6',
+                            violet: '#8b5cf6',
+                            emerald: '#10b981',
+                            rose: '#f43f5e',
+                            amber: '#f59e0b'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['Fira Code', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        body {
+            background-color: #080d1a;
+            color: #f8fafc;
+            overflow-x: hidden;
+        }
+
+        /* Glassmorphism Effect */
+        .glass-panel {
+            background: rgba(14, 23, 42, 0.75);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(30, 41, 59, 0.8);
+        }
+
+        .glass-card {
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        /* Glow effects */
+        .cyan-glow {
+            box-shadow: 0 0 20px rgba(6, 182, 212, 0.35);
+        }
+        
+        .text-glow {
+            text-shadow: 0 0 10px rgba(6, 182, 212, 0.6);
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #080d1a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #06b6d4;
+        }
+
+        /* Custom Range Slider */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: transparent;
+        }
+        input[type=range]:focus {
+            outline: none;
+        }
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 6px;
+            cursor: pointer;
+            background: #1e293b;
+            border-radius: 3px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        input[type=range]::-webkit-slider-thumb {
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #06b6d4;
+            cursor: pointer;
+            -webkit-appearance: none;
+            margin-top: -5px;
+            box-shadow: 0 0 10px #06b6d4;
+        }
+
+        canvas {
+            touch-action: none;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col font-sans antialiased text-slate-200">
+
+    <!-- TOP NAVIGATION BAR -->
+    <header class="sticky top-0 z-50 glass-panel border-b border-slate-800/80 px-4 py-3">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+            <!-- Logo -->
+            <div class="flex items-center space-x-3">
+                <div class="p-2 bg-gradient-to-tr from-cyan-500 to-blue-600 rounded-xl shadow-lg shadow-cyan-500/20 text-white">
+                    <i data-lucide="zap" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-blue-400 to-violet-400 tracking-tight">
+                        FibreLab <span class="text-xs px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-400 border border-cyan-800/50">3D PRO</span>
+                    </h1>
+                    <p class="text-xs text-slate-400 font-mono">Interactive Fibre Optics Physics Laboratory</p>
+                </div>
+            </div>
+
+            <!-- Main Tabs Nav -->
+            <nav class="flex items-center space-x-1 bg-slate-900/90 p-1 rounded-xl border border-slate-800 text-xs sm:text-sm font-medium">
+                <button onclick="switchTab('sim')" id="tab-sim" class="px-3 sm:px-4 py-2 rounded-lg transition-all flex items-center space-x-2 bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">
+                    <i data-lucide="box" class="w-4 h-4"></i>
+                    <span>3D Lab & Optics</span>
+                </button>
+                <button onclick="switchTab('signal')" id="tab-signal" class="px-3 sm:px-4 py-2 rounded-lg transition-all flex items-center space-x-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800">
+                    <i data-lucide="activity" class="w-4 h-4"></i>
+                    <span>Signal Transmission</span>
+                </button>
+                <button onclick="switchTab('analytics')" id="tab-analytics" class="px-3 sm:px-4 py-2 rounded-lg transition-all flex items-center space-x-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800">
+                    <i data-lucide="bar-chart-3" class="w-4 h-4"></i>
+                    <span>Live Graphs</span>
+                </button>
+                <button onclick="switchTab('theory')" id="tab-theory" class="px-3 sm:px-4 py-2 rounded-lg transition-all flex items-center space-x-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800">
+                    <i data-lucide="book-open" class="w-4 h-4"></i>
+                    <span>Theory & Presets</span>
+                </button>
+                <button onclick="switchTab('apps')" id="tab-apps" class="px-3 sm:px-4 py-2 rounded-lg transition-all flex items-center space-x-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800">
+                    <i data-lucide="cpu" class="w-4 h-4"></i>
+                    <span>Applications</span>
+                </button>
+            </nav>
+
+            <!-- Status Indicator -->
+            <div class="hidden lg:flex items-center space-x-2 text-xs font-mono bg-slate-900/80 px-3 py-1.5 rounded-lg border border-slate-800">
+                <span id="tir-status-badge" class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <span id="tir-status-text" class="text-emerald-400 font-semibold">TIR Active (Guided Beam)</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- MAIN APP CONTAINER -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-3 sm:p-6 grid grid-cols-1 gap-6">
+
+        <!-- ================= TAB 1: 3D SIMULATION & CONTROLS ================= -->
+        <section id="page-sim" class="space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                <!-- 3D Canvas Viewport (8 Cols) -->
+                <div class="lg:col-span-8 space-y-4">
+                    <div class="glass-panel rounded-2xl p-2 relative overflow-hidden h-[450px] sm:h-[550px] flex flex-col">
+                        <!-- Canvas Overlay Header Controls -->
+                        <div class="absolute top-4 left-4 right-4 z-10 flex justify-between items-center pointer-events-none">
+                            <div class="bg-slate-950/80 backdrop-blur border border-slate-800 px-3 py-1.5 rounded-xl pointer-events-auto flex items-center space-x-2 text-xs font-mono">
+                                <i data-lucide="eye" class="w-4 h-4 text-cyan-400"></i>
+                                <span>3D Ray Simulation Engine</span>
+                            </div>
+                            
+                            <div class="flex items-center space-x-2 pointer-events-auto">
+                                <button onclick="resetCamera()" title="Reset Camera View" class="p-2 bg-slate-900/80 hover:bg-slate-800 border border-slate-700/80 rounded-xl text-slate-300 text-xs flex items-center space-x-1">
+                                    <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                                    <span class="hidden sm:inline">Reset View</span>
+                                </button>
+                                <button onclick="toggleNormals()" id="btn-toggle-normals" class="p-2 bg-slate-900/80 hover:bg-slate-800 border border-slate-700/80 rounded-xl text-slate-300 text-xs flex items-center space-x-1">
+                                    <i data-lucide="compass" class="w-3.5 h-3.5 text-cyan-400"></i>
+                                    <span>Normals</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- WebGL Canvas Container -->
+                        <div id="three-container" class="w-full h-full rounded-xl bg-slate-950/90 relative cursor-grab active:cursor-grabbing"></div>
+
+                        <!-- Floating HUD Metrics Overlay -->
+                        <div class="absolute bottom-4 left-4 right-4 z-10 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono pointer-events-none">
+                            <div class="bg-slate-950/85 backdrop-blur p-2.5 rounded-xl border border-slate-800/80">
+                                <span class="text-slate-400 block text-[10px]">INCIDENT ANGLE (θ₁)</span>
+                                <span id="hud-angle" class="text-cyan-400 font-bold text-sm">45.0°</span>
+                            </div>
+                            <div class="bg-slate-950/85 backdrop-blur p-2.5 rounded-xl border border-slate-800/80">
+                                <span class="text-slate-400 block text-[10px]">CRITICAL ANGLE (θc)</span>
+                                <span id="hud-critical" class="text-amber-400 font-bold text-sm">62.5°</span>
+                            </div>
+                            <div class="bg-slate-950/85 backdrop-blur p-2.5 rounded-xl border border-slate-800/80">
+                                <span class="text-slate-400 block text-[10px]">NUMERICAL APERTURE</span>
+                                <span id="hud-na" class="text-emerald-400 font-bold text-sm">0.46</span>
+                            </div>
+                            <div class="bg-slate-950/85 backdrop-blur p-2.5 rounded-xl border border-slate-800/80">
+                                <span class="text-slate-400 block text-[10px]">OPTICAL POWER OUT</span>
+                                <span id="hud-power" class="text-violet-400 font-bold text-sm">98.2%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Control Panel Sidebar (4 Cols) -->
+                <div class="lg:col-span-4 space-y-4">
+                    <div class="glass-panel rounded-2xl p-5 space-y-5">
+                        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                            <h2 class="font-bold text-base flex items-center space-x-2 text-slate-100">
+                                <i data-lucide="sliders" class="w-4 h-4 text-cyan-400"></i>
+                                <span>Optics & Fibre Controls</span>
+                            </h2>
+                            <span class="text-[11px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full font-mono">Real-time</span>
+                        </div>
+
+                        <!-- Controls Form -->
+                        <div class="space-y-4 text-xs">
+                            
+                            <!-- Refractive Index Core (n1) -->
+                            <div class="space-y-1.5">
+                                <div class="flex justify-between font-mono">
+                                    <label class="text-slate-300">Core Index (n₁)</label>
+                                    <span id="val-n1" class="text-cyan-400 font-bold">1.480</span>
+                                </div>
+                                <input type="range" id="input-n1" min="1.400" max="1.650" step="0.005" value="1.480" oninput="updatePhysicsEngine()">
+                                <p class="text-[10px] text-slate-500">Germanium-doped silica core density</p>
+                            </div>
+
+                            <!-- Refractive Index Cladding (n2) -->
+                            <div class="space-y-1.5">
+                                <div class="flex justify-between font-mono">
+                                    <label class="text-slate-300">Cladding Index (n₂)</label>
+                                    <span id="val-n2" class="text-cyan-400 font-bold">1.440</span>
+                                </div>
+                                <input type="range" id="input-n2" min="1.350" max="1.550" step="0.005" value="1.440" oninput="updatePhysicsEngine()">
+                                <p class="text-[10px] text-slate-500">Pure silica outer sheath index</p>
+                            </div>
+
+                            <!-- Launch Angle -->
+                            <div class="space-y-1.5">
+                                <div class="flex justify-between font-mono">
+                                    <label class="text-slate-300">Beam Launch Angle (θ)</label>
+                                    <span id="val-angle" class="text-cyan-400 font-bold">75.0°</span>
+                                </div>
+                                <input type="range" id="input-angle" min="10" max="89" step="0.5" value="75.0" oninput="updatePhysicsEngine()">
+                                <p class="text-[10px] text-slate-500">Angle relative to core-cladding interface</p>
+                            </div>
+
+                            <!-- Macrobend Curvature Slider -->
+                            <div class="space-y-1.5 pt-2 border-t border-slate-800/80">
+                                <div class="flex justify-between font-mono">
+                                    <label class="text-slate-300 flex items-center space-x-1">
+                                        <i data-lucide="corner-down-right" class="w-3.5 h-3.5 text-amber-400"></i>
+                                        <span>Macrobend Curvature</span>
+                                    </label>
+                                    <span id="val-bend" class="text-amber-400 font-bold">0.0 (Straight)</span>
+                                </div>
+                                <input type="range" id="input-bend" min="0" max="1.5" step="0.05" value="0" oninput="updatePhysicsEngine()">
+                                <p class="text-[10px] text-slate-500">Simulate physical bending radiation loss</p>
+                            </div>
+
+                            <!-- Wavelength Selector -->
+                            <div class="space-y-1.5">
+                                <label class="text-slate-300 font-mono block">Laser Wavelength (λ)</label>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <button onclick="setWavelength(1550)" id="wl-1550" class="py-1.5 px-2 rounded-lg bg-cyan-950 border border-cyan-500/50 text-cyan-300 font-mono text-[11px]">1550 nm</button>
+                                    <button onclick="setWavelength(1310)" id="wl-1310" class="py-1.5 px-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 font-mono text-[11px]">1310 nm</button>
+                                    <button onclick="setWavelength(850)" id="wl-850" class="py-1.5 px-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 font-mono text-[11px]">850 nm</button>
+                                </div>
+                            </div>
+
+                            <!-- Fibre Length -->
+                            <div class="space-y-1.5">
+                                <div class="flex justify-between font-mono">
+                                    <label class="text-slate-300">Fibre Length (L)</label>
+                                    <span id="val-length" class="text-slate-300 font-bold">12.0 km</span>
+                                </div>
+                                <input type="range" id="input-length" min="1" max="50" step="1" value="12" oninput="updatePhysicsEngine()">
+                            </div>
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Physics Math & Calculation Breakdown Card -->
+            <div class="glass-panel rounded-2xl p-5 border border-slate-800">
+                <h3 class="text-sm font-bold text-slate-200 mb-4 flex items-center space-x-2">
+                    <i data-lucide="calculator" class="w-4 h-4 text-cyan-400"></i>
+                    <span>Analytical Physics Engine & Snell's Law Breakdown</span>
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                    <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800/80 space-y-2">
+                        <div class="text-slate-400 font-mono text-[11px]">CRITICAL ANGLE FORMULA</div>
+                        <div class="font-mono text-cyan-300 text-sm">θc = arcsin(n₂ / n₁)</div>
+                        <p class="text-slate-400 text-[11px]" id="calc-step-critical">
+                            arcsin(1.440 / 1.480) = <span class="text-cyan-400 font-bold">76.54°</span>
+                        </p>
+                    </div>
+                    <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800/80 space-y-2">
+                        <div class="text-slate-400 font-mono text-[11px]">NUMERICAL APERTURE (NA)</div>
+                        <div class="font-mono text-emerald-300 text-sm">NA = √(n₁² - n₂²)</div>
+                        <p class="text-slate-400 text-[11px]" id="calc-step-na">
+                            √(1.480² - 1.440²) = <span class="text-emerald-400 font-bold">0.342</span>
+                        </p>
+                    </div>
+                    <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800/80 space-y-2">
+                        <div class="text-slate-400 font-mono text-[11px]">ACCEPTANCE CONE ANGLE</div>
+                        <div class="font-mono text-violet-300 text-sm">θa = arcsin(NA / n₀)</div>
+                        <p class="text-slate-400 text-[11px]" id="calc-step-accept">
+                            arcsin(0.342 / 1.0) = <span class="text-violet-400 font-bold">20.00°</span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= TAB 2: SIGNAL TRANSMISSION & RECEIVER LAB ================= -->
+        <section id="page-signal" class="hidden space-y-6">
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                
+                <!-- Transmission Config & Controls (4 Cols) -->
+                <div class="lg:col-span-4 space-y-4">
+                    <div class="glass-panel rounded-2xl p-5 space-y-4">
+                        <h2 class="font-bold text-base flex items-center space-x-2 text-slate-100 border-b border-slate-800 pb-3">
+                            <i data-lucide="send" class="w-4 h-4 text-cyan-400"></i>
+                            <span>Optical Pulse Transmitter</span>
+                        </h2>
+
+                        <!-- Input Text -->
+                        <div class="space-y-2">
+                            <label class="text-xs text-slate-300 font-mono">Transmitter Message (ASCII Text)</label>
+                            <input type="text" id="tx-input-text" value="FibreOptics2026" maxlength="20" class="w-full bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm font-mono text-cyan-400 focus:outline-none focus:border-cyan-500" oninput="processSignalTransmission()">
+                        </div>
+
+                        <!-- Data Rate / Bitrate -->
+                        <div class="space-y-1.5">
+                            <div class="flex justify-between font-mono text-xs">
+                                <label class="text-slate-300">Data Transmission Speed</label>
+                                <span id="val-bitrate" class="text-cyan-400 font-bold">10 Gbps</span>
+                            </div>
+                            <input type="range" id="input-bitrate" min="1" max="100" step="1" value="10" oninput="processSignalTransmission()">
+                        </div>
+
+                        <!-- Attenuation Noise Slider -->
+                        <div class="space-y-1.5">
+                            <div class="flex justify-between font-mono text-xs">
+                                <label class="text-slate-300">Channel Noise / Attenuation</label>
+                                <span id="val-noise" class="text-amber-400 font-bold">0.18 dB/km</span>
+                            </div>
+                            <input type="range" id="input-noise" min="0.05" max="1.50" step="0.05" value="0.18" oninput="processSignalTransmission()">
+                        </div>
+
+                        <!-- Transmission Status Metrics -->
+                        <div class="p-3 bg-slate-900/90 rounded-xl border border-slate-800 space-y-2 text-xs font-mono">
+                            <div class="flex justify-between">
+                                <span class="text-slate-400">Total Bits Sent:</span>
+                                <span id="sig-bit-count" class="text-slate-200">112 bits</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-slate-400">Signal-to-Noise Ratio (SNR):</span>
+                                <span id="sig-snr" class="text-emerald-400 font-bold">28.4 dB</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-slate-400">Q-Factor:</span>
+                                <span id="sig-qfactor" class="text-cyan-400 font-bold">6.82</span>
+                            </div>
+                            <div class="flex justify-between">
+                                <span class="text-slate-400">Bit Error Rate (BER):</span>
+                                <span id="sig-ber" class="text-emerald-400 font-bold">1.2e-9</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Dual Trace Oscilloscope & Decoder (8 Cols) -->
+                <div class="lg:col-span-8 space-y-4">
+                    <div class="glass-panel rounded-2xl p-5 space-y-4">
+                        <div class="flex justify-between items-center">
+                            <h2 class="font-bold text-base flex items-center space-x-2 text-slate-100">
+                                <i data-lucide="activity" class="w-4 h-4 text-cyan-400"></i>
+                                <span>Dual-Trace Optical Oscilloscope (Tx vs Rx)</span>
+                            </h2>
+                            <span class="text-xs font-mono text-emerald-400 bg-emerald-950/60 border border-emerald-800 px-2 py-0.5 rounded-full">Live Signal Waveform</span>
+                        </div>
+
+                        <!-- Oscilloscope Canvas -->
+                        <div class="bg-slate-950 rounded-xl p-3 border border-slate-800 relative h-[260px]">
+                            <canvas id="scopeCanvas" class="w-full h-full"></canvas>
+                        </div>
+
+                        <!-- Receiver Decoded Output Box -->
+                        <div class="p-4 bg-slate-900/90 rounded-xl border border-slate-800 space-y-3">
+                            <div class="flex justify-between items-center">
+                                <span class="text-xs font-mono text-slate-400 uppercase tracking-wider">Demodulated Optical Receiver Output</span>
+                                <span id="rx-status-tag" class="text-xs font-mono px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800">100% Signal Integrity</span>
+                            </div>
+
+                            <div class="p-3 bg-slate-950 rounded-lg border border-slate-800/80 font-mono text-lg tracking-wider flex items-center justify-between">
+                                <div id="rx-decoded-text" class="text-emerald-400 font-bold">FibreOptics2026</div>
+                                <div class="text-xs text-slate-500 font-normal">Receiver Photodiode Readout</div>
+                            </div>
+
+                            <!-- Bit Stream Inspector -->
+                            <div class="space-y-1">
+                                <div class="text-[11px] font-mono text-slate-400">Transmitted Optical Bitstream Preview (First 32 Bits):</div>
+                                <div id="rx-bitstream" class="p-2.5 bg-slate-950 rounded border border-slate-800/80 font-mono text-xs text-slate-300 break-all leading-relaxed">
+                                    01000110 01101001 01100010 01110010 01100101
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= TAB 3: LIVE ANALYTICS & GRAPHS ================= -->
+        <section id="page-analytics" class="hidden space-y-6">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                
+                <!-- Chart 1: Angle vs Transmission -->
+                <div class="glass-panel rounded-2xl p-4 space-y-3">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                        <h3 class="text-xs font-bold font-mono text-slate-200">1. Incident Angle vs TIR Efficiency</h3>
+                        <i data-lucide="trending-up" class="w-4 h-4 text-cyan-400"></i>
+                    </div>
+                    <div class="h-[240px]">
+                        <canvas id="chartAngle"></canvas>
+                    </div>
+                </div>
+
+                <!-- Chart 2: Bend Radius vs Macrobend Loss -->
+                <div class="glass-panel rounded-2xl p-4 space-y-3">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                        <h3 class="text-xs font-bold font-mono text-slate-200">2. Macrobend Loss vs Radius</h3>
+                        <i data-lucide="corner-down-right" class="w-4 h-4 text-amber-400"></i>
+                    </div>
+                    <div class="h-[240px]">
+                        <canvas id="chartBend"></canvas>
+                    </div>
+                </div>
+
+                <!-- Chart 3: Length vs Optical Power (Beer-Lambert) -->
+                <div class="glass-panel rounded-2xl p-4 space-y-3">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-2">
+                        <h3 class="text-xs font-bold font-mono text-slate-200">3. Power Attenuation vs Length</h3>
+                        <i data-lucide="zap-off" class="w-4 h-4 text-violet-400"></i>
+                    </div>
+                    <div class="h-[240px]">
+                        <canvas id="chartPower"></canvas>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- ================= TAB 4: THEORY & GUIDED EXPERIMENTS ================= -->
+        <section id="page-theory" class="hidden space-y-6">
+            
+            <!-- Experiment Presets Bar -->
+            <div class="glass-panel rounded-2xl p-5 space-y-3">
+                <h2 class="text-sm font-bold flex items-center space-x-2 text-slate-100">
+                    <i data-lucide="flask-conical" class="w-4 h-4 text-cyan-400"></i>
+                    <span>1-Click Physics Experiment Presets</span>
+                </h2>
+                <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2 text-xs">
+                    <button onclick="applyPreset('tir_ideal')" class="p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-cyan-300 font-medium text-left">
+                        <div class="font-bold">A. Ideal TIR</div>
+                        <div class="text-[10px] text-slate-500">Step-Index Guide</div>
+                    </button>
+                    <button onclick="applyPreset('refraction_leak')" class="p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-amber-300 font-medium text-left">
+                        <div class="font-bold">B. Refraction Leak</div>
+                        <div class="text-[10px] text-slate-500">Below θc Threshold</div>
+                    </button>
+                    <button onclick="applyPreset('bend_loss')" class="p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-rose-300 font-medium text-left">
+                        <div class="font-bold">C. Severe Bend</div>
+                        <div class="text-[10px] text-slate-500">Macrobend Loss</div>
+                    </button>
+                    <button onclick="applyPreset('telecom_std')" class="p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-emerald-300 font-medium text-left">
+                        <div class="font-bold">D. Telecom Standard</div>
+                        <div class="text-[10px] text-slate-500">1550 nm Single-Mode</div>
+                    </button>
+                    <button onclick="applyPreset('high_na')" class="p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-violet-300 font-medium text-left">
+                        <div class="font-bold">E. High NA Fiber</div>
+                        <div class="text-[10px] text-slate-500">Wide Acceptance Angle</div>
+                    </button>
+                    <button onclick="applyPreset('plastic_pof')" class="p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-blue-300 font-medium text-left">
+                        <div class="font-bold">F. POF Plastic</div>
+                        <div class="text-[10px] text-slate-500">Large Core Guide</div>
+                    </button>
+                    <button onclick="applyPreset('critical_threshold')" class="p-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 border border-slate-800 text-yellow-300 font-medium text-left">
+                        <div class="font-bold">G. Critical Limit</div>
+                        <div class="text-[10px] text-slate-500">θ = θc Grazing</div>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Theory Cards Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Total Internal Reflection Card -->
+                <div class="glass-panel rounded-2xl p-5 space-y-3">
+                    <div class="flex items-center space-x-2 text-cyan-400 font-bold text-sm">
+                        <i data-lucide="shield-check" class="w-4 h-4"></i>
+                        <h3>1. Total Internal Reflection (TIR)</h3>
+                    </div>
+                    <p class="text-xs text-slate-300 leading-relaxed">
+                        Total Internal Reflection occurs when a light ray traveling in a denser medium ($n_1$) strikes the boundary of a rarer medium ($n_2$) at an incident angle $\theta_1$ greater than the critical angle $\theta_c$.
+                    </p>
+                    <div class="p-3 bg-slate-950 rounded-xl font-mono text-xs text-cyan-300 border border-slate-800">
+                        θc = arcsin(n₂ / n₁) &nbsp;|&nbsp; Requires n₁ > n₂
+                    </div>
+                </div>
+
+                <!-- Attenuation & Scattering Card -->
+                <div class="glass-panel rounded-2xl p-5 space-y-3">
+                    <div class="flex items-center space-x-2 text-violet-400 font-bold text-sm">
+                        <i data-lucide="waves" class="w-4 h-4"></i>
+                        <h3>2. Beer-Lambert Attenuation</h3>
+                    </div>
+                    <p class="text-xs text-slate-300 leading-relaxed">
+                        Optical signal power decreases exponentially along the fibre length due to Rayleigh scattering and intrinsic absorption loss ($\alpha$).
+                    </p>
+                    <div class="p-3 bg-slate-950 rounded-xl font-mono text-xs text-violet-300 border border-slate-800">
+                        P(L) = P₀ · 10^(-α · L / 10)
+                    </div>
+                </div>
+
+                <!-- Modal Dispersion Card -->
+                <div class="glass-panel rounded-2xl p-5 space-y-3">
+                    <div class="flex items-center space-x-2 text-emerald-400 font-bold text-sm">
+                        <i data-lucide="split" class="w-4 h-4"></i>
+                        <h3>3. Numerical Aperture & Acceptance Cone</h3>
+                    </div>
+                    <p class="text-xs text-slate-300 leading-relaxed">
+                        The Numerical Aperture (NA) measures the light-gathering capability of the fiber. Light launched within the acceptance cone angle $\theta_a$ will undergo TIR.
+                    </p>
+                    <div class="p-3 bg-slate-950 rounded-xl font-mono text-xs text-emerald-300 border border-slate-800">
+                        NA = √(n₁² - n₂²) = n₀ · sin(θa)
+                    </div>
+                </div>
+
+                <!-- Bending Loss Card -->
+                <div class="glass-panel rounded-2xl p-5 space-y-3">
+                    <div class="flex items-center space-x-2 text-amber-400 font-bold text-sm">
+                        <i data-lucide="corner-down-right" class="w-4 h-4"></i>
+                        <h3>4. Macrobend Radiation Loss</h3>
+                    </div>
+                    <p class="text-xs text-slate-300 leading-relaxed">
+                        When a fiber is bent beyond its critical curvature radius, light rays hit the core-cladding boundary at angles smaller than $\theta_c$, causing energy to leak into the cladding.
+                    </p>
+                    <div class="p-3 bg-slate-950 rounded-xl font-mono text-xs text-amber-300 border border-slate-800">
+                        α_bend ∝ exp(-R / R_critical)
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= TAB 5: APPLICATIONS PAGE ================= -->
+        <section id="page-apps" class="hidden space-y-6">
+            <div class="glass-panel rounded-2xl p-6 border border-slate-800 space-y-6">
+                <div>
+                    <h2 class="text-lg font-bold text-slate-100 flex items-center space-x-2">
+                        <i data-lucide="cpu" class="w-5 h-5 text-cyan-400"></i>
+                        <span>Optical Fiber Applications in Engineering & Industry</span>
+                    </h2>
+                    <p class="text-xs text-slate-400">Comprehensive illustrative overview of practical optical guide systems</p>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    
+                    <!-- App Card 1 -->
+                    <div class="bg-slate-900/80 p-5 rounded-2xl border border-slate-800 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-mono font-bold text-cyan-400">TELECOMMUNICATIONS</span>
+                            <span class="text-[10px] px-2 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800">Submarine & Terrestrial</span>
+                        </div>
+                        <h3 class="text-base font-bold text-slate-100">Transoceanic Fibre Cable Systems</h3>
+                        <p class="text-xs text-slate-300 leading-relaxed">
+                            Single-mode optical fibers carry petabits of global internet traffic across ocean beds. Operating at the 1550 nm low-attenuation window, Erbium-Doped Fiber Amplifiers (EDFAs) boost signals every 50-80 km.
+                        </p>
+                        <div class="p-3 bg-slate-950 rounded-xl font-mono text-[11px] text-slate-400 border border-slate-800">
+                            Key Formula: Attenuation α ≈ 0.18 dB/km @ 1550 nm
+                        </div>
+                    </div>
+
+                    <!-- App Card 2 -->
+                    <div class="bg-slate-900/80 p-5 rounded-2xl border border-slate-800 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-mono font-bold text-emerald-400">MEDICAL PHYSICS</span>
+                            <span class="text-[10px] px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-800">Minimally Invasive</span>
+                        </div>
+                        <h3 class="text-base font-bold text-slate-100">Medical Endoscopes & Laser Surgery</h3>
+                        <p class="text-xs text-slate-300 leading-relaxed">
+                            Coherent fiber bundles transfer high-resolution images from inside human body cavities, while non-coherent fiber bundles deliver high-power illuminating laser light for precision surgery and diagnostic imaging.
+                        </p>
+                        <div class="p-3 bg-slate-950 rounded-xl font-mono text-[11px] text-slate-400 border border-slate-800">
+                            Key Parameter: High NA (≥0.5) for max light acceptance
+                        </div>
+                    </div>
+
+                    <!-- App Card 3 -->
+                    <div class="bg-slate-900/80 p-5 rounded-2xl border border-slate-800 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-mono font-bold text-violet-400">SENSING & STRUCTURAL</span>
+                            <span class="text-[10px] px-2 py-0.5 rounded bg-violet-950 text-violet-300 border border-violet-800">FBG Sensors</span>
+                        </div>
+                        <h3 class="text-base font-bold text-slate-100">Fiber Bragg Grating (FBG) Strain Sensors</h3>
+                        <p class="text-xs text-slate-300 leading-relaxed">
+                            FBGs are microscopic periodic variations in core refractive index. Applied strain or temperature shifts the reflected Bragg wavelength, providing real-time health monitoring for bridges, aircraft wings, and dams.
+                        </p>
+                        <div class="p-3 bg-slate-950 rounded-xl font-mono text-[11px] text-slate-400 border border-slate-800">
+                            Key Formula: λ_Bragg = 2 · n_eff · Λ
+                        </div>
+                    </div>
+
+                    <!-- App Card 4 -->
+                    <div class="bg-slate-900/80 p-5 rounded-2xl border border-slate-800 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-mono font-bold text-amber-400">NAVIGATION & AEROSPACE</span>
+                            <span class="text-[10px] px-2 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800">Sagnac Effect</span>
+                        </div>
+                        <h3 class="text-base font-bold text-slate-100">Fiber Optic Gyroscopes (FOG)</h3>
+                        <p class="text-xs text-slate-300 leading-relaxed">
+                            FOGs use the Sagnac interferometric effect with counter-propagating laser beams in a fiber coil to measure angular rotation rate with high precision without moving mechanical parts.
+                        </p>
+                        <div class="p-3 bg-slate-950 rounded-xl font-mono text-[11px] text-slate-400 border border-slate-800">
+                            Key Formula: ΔΦ = (8π · A · N / λ · c) · Ω
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="mt-auto border-t border-slate-800/80 glass-panel py-4 text-center text-xs text-slate-500 font-mono">
+        <p>FibreLab 3D Physics Laboratory &copy; 2026 — Interactive Optical Physics Simulation Suite</p>
+    </footer>
+
+    <!-- MAIN JAVASCRIPT ENGINE -->
+    <script>
+        // ================= GLOBAL STATE =================
+        const state = {
+            n1: 1.480,
+            n2: 1.440,
+            launchAngle: 75.0, // relative to normal
+            bendRadius: 0.0,
+            wavelength: 1550,
+            length: 12.0,
+            bitrate: 10,
+            noise: 0.18,
+            message: "FibreOptics2026",
+            showNormals: true,
+            activeTab: 'sim'
+        };
+
+        // Three.js Global References
+        let scene, camera, renderer, controls;
+        let coreMesh, claddingMesh, rayGroup, normalGroup;
+        let chartAngle, chartBend, chartPower;
+
+        // ================= TAB NAVIGATION =================
+        function switchTab(tabId) {
+            state.activeTab = tabId;
+            ['sim', 'signal', 'analytics', 'theory', 'apps'].forEach(id => {
+                const page = document.getElementById(`page-${id}`);
+                const tabBtn = document.getElementById(`tab-${id}`);
+                if (id === tabId) {
+                    page.classList.remove('hidden');
+                    tabBtn.className = "px-3 sm:px-4 py-2 rounded-lg transition-all flex items-center space-x-2 bg-cyan-500/20 text-cyan-300 border border-cyan-500/40";
+                } else {
+                    page.classList.add('hidden');
+                    tabBtn.className = "px-3 sm:px-4 py-2 rounded-lg transition-all flex items-center space-x-2 text-slate-400 hover:text-slate-200 hover:bg-slate-800";
+                }
+            });
+
+            if (tabId === 'analytics') {
+                renderCharts();
+            } else if (tabId === 'signal') {
+                processSignalTransmission();
+            }
+        }
+
+        // ================= THREE.JS INITIALIZATION =================
+        function init3D() {
+            const container = document.getElementById('three-container');
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+
+            // Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x080d1a);
+
+            // Camera
+            camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+            camera.position.set(0, 10, 35);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(width, height);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            container.appendChild(renderer.domElement);
+
+            // Controls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0x00f2fe, 1.2);
+            dirLight.position.set(20, 30, 20);
+            scene.add(dirLight);
+
+            const pointLight = new THREE.PointLight(0x8b5cf6, 1, 50);
+            pointLight.position.set(-15, 0, 0);
+            scene.add(pointLight);
+
+            // Groups
+            rayGroup = new THREE.Group();
+            normalGroup = new THREE.Group();
+            scene.add(rayGroup);
+            scene.add(normalGroup);
+
+            // Build Fiber Geometry
+            buildFiberGeometry();
+
+            // Window Resize
+            window.addEventListener('resize', onWindowResize);
+
+            // Start Loop
+            animate();
+        }
+
+        function buildFiberGeometry() {
+            // Remove existing meshes if any
+            if (coreMesh) scene.remove(coreMesh);
+            if (claddingMesh) scene.remove(claddingMesh);
+
+            const bend = state.bendRadius;
+            const length = 26;
+            const segments = 64;
+
+            // Curved Curve for Fiber
+            class FiberCurve extends THREE.Curve {
+                constructor(scale = 1, bendAmount = 0) {
+                    super();
+                    this.scale = scale;
+                    this.bendAmount = bendAmount;
+                }
+                getPoint(t) {
+                    const x = (t - 0.5) * length;
+                    const y = -Math.pow(t - 0.5, 2) * this.bendAmount * 12;
+                    const z = 0;
+                    return new THREE.Vector3(x, y, z);
+                }
+            }
+
+            const path = new FiberCurve(1, bend);
+
+            // Core Geometry
+            const coreGeo = new THREE.TubeGeometry(path, segments, 1.8, 32, false);
+            const coreMat = new THREE.MeshPhysicalMaterial({
+                color: 0x06b6d4,
+                transparent: true,
+                opacity: 0.35,
+                roughness: 0.1,
+                transmission: 0.8,
+                ior: state.n1,
+                side: THREE.DoubleSide
+            });
+            coreMesh = new THREE.Mesh(coreGeo, coreMat);
+            scene.add(coreMesh);
+
+            // Cladding Geometry
+            const cladGeo = new THREE.TubeGeometry(path, segments, 3.2, 32, false);
+            const cladMat = new THREE.MeshPhysicalMaterial({
+                color: 0x3b82f6,
+                transparent: true,
+                opacity: 0.12,
+                roughness: 0.2,
+                transmission: 0.9,
+                ior: state.n2,
+                wireframe: true
+            });
+            claddingMesh = new THREE.Mesh(cladGeo, cladMat);
+            scene.add(claddingMesh);
+
+            // Re-render Rays
+            updateRayTracing();
+        }
+
+        function updateRayTracing() {
+            // Clear Rays
+            while (rayGroup.children.length > 0) {
+                rayGroup.remove(rayGroup.children[0]);
+            }
+            while (normalGroup.children.length > 0) {
+                normalGroup.remove(normalGroup.children[0]);
+            }
+
+            const n1 = state.n1;
+            const n2 = state.n2;
+            const criticalAngleRad = Math.asin(n2 / n1);
+            const incidentAngleRad = (state.launchAngle * Math.PI) / 180;
+            const isTIR = incidentAngleRad >= criticalAngleRad;
+
+            const coreRadius = 1.8;
+            const startX = -13;
+            let currentX = startX;
+            let currentY = 0;
+            let dirY = Math.tan(Math.PI / 2 - incidentAngleRad);
+
+            const points = [new THREE.Vector3(currentX, currentY, 0)];
+            const maxReflections = 10;
+
+            for (let i = 0; i < maxReflections; i++) {
+                const nextY = dirY > 0 ? coreRadius : -coreRadius;
+                const deltaY = nextY - currentY;
+                const deltaX = Math.abs(deltaY / dirY);
+                const nextX = currentX + deltaX;
+
+                if (nextX > 13) {
+                    // Reached end of fiber core
+                    const endY = currentY + dirY * (13 - currentX);
+                    points.push(new THREE.Vector3(13, endY, 0));
+                    break;
+                }
+
+                points.push(new THREE.Vector3(nextX, nextY, 0));
+
+                // Add Normal Line Indicator
+                if (state.showNormals) {
+                    const normGeo = new THREE.BufferGeometry().setFromPoints([
+                        new THREE.Vector3(nextX, nextY + (dirY > 0 ? 0.8 : -0.8), 0),
+                        new THREE.Vector3(nextX, nextY - (dirY > 0 ? 0.8 : -0.8), 0)
+                    ]);
+                    const normMat = new THREE.LineDashedMaterial({ color: 0xf59e0b, dashSize: 0.2, gapSize: 0.1 });
+                    const normLine = new THREE.Line(normGeo, normMat);
+                    normLine.computeLineDistances();
+                    normalGroup.add(normLine);
+                }
+
+                if (!isTIR) {
+                    // Refraction Leak Out of Fiber
+                    const leakedX = nextX + 2;
+                    const leakedY = nextY + (dirY > 0 ? 3 : -3);
+                    
+                    const leakGeo = new THREE.BufferGeometry().setFromPoints([
+                        new THREE.Vector3(nextX, nextY, 0),
+                        new THREE.Vector3(leakedX, leakedY, 0)
+                    ]);
+                    const leakMat = new THREE.LineBasicMaterial({ color: 0xf43f5e, linewidth: 2 });
+                    rayGroup.add(new THREE.Line(leakGeo, leakMat));
+                    break;
+                }
+
+                currentX = nextX;
+                currentY = nextY;
+                dirY = -dirY; // Reflect
+            }
+
+            // Draw Core Ray
+            const rayGeo = new THREE.BufferGeometry().setFromPoints(points);
+            const rayMat = new THREE.LineBasicMaterial({
+                color: isTIR ? (state.wavelength === 1550 ? 0x06b6d4 : 0x8b5cf6) : 0xf43f5e,
+                linewidth: 3
+            });
+            const rayLine = new THREE.Line(rayGeo, rayMat);
+            rayGroup.add(rayLine);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            if (controls) controls.update();
+            if (renderer && scene && camera) renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            const container = document.getElementById('three-container');
+            if (!container || !renderer || !camera) return;
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+            renderer.setSize(width, height);
+        }
+
+        function resetCamera() {
+            camera.position.set(0, 10, 35);
+            controls.target.set(0, 0, 0);
+        }
+
+        function toggleNormals() {
+            state.showNormals = !state.showNormals;
+            const btn = document.getElementById('btn-toggle-normals');
+            btn.classList.toggle('text-cyan-400');
+            updateRayTracing();
+        }
+
+        function setWavelength(wl) {
+            state.wavelength = wl;
+            [850, 1310, 1550].forEach(w => {
+                const btn = document.getElementById(`wl-${w}`);
+                if (w === wl) {
+                    btn.className = "py-1.5 px-2 rounded-lg bg-cyan-950 border border-cyan-500/50 text-cyan-300 font-mono text-[11px]";
+                } else {
+                    btn.className = "py-1.5 px-2 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 font-mono text-[11px]";
+                }
+            });
+            updatePhysicsEngine();
+        }
+
+        // ================= PHYSICS ENGINE CALCULATIONS =================
+        function updatePhysicsEngine() {
+            // Read inputs
+            state.n1 = parseFloat(document.getElementById('input-n1').value);
+            state.n2 = parseFloat(document.getElementById('input-n2').value);
+            state.launchAngle = parseFloat(document.getElementById('input-angle').value);
+            state.bendRadius = parseFloat(document.getElementById('input-bend').value);
+            state.length = parseFloat(document.getElementById('input-length').value);
+
+            // Ensure n1 > n2
+            if (state.n2 >= state.n1) {
+                state.n2 = state.n1 - 0.005;
+                document.getElementById('input-n2').value = state.n2;
+            }
+
+            // Labels Update
+            document.getElementById('val-n1').innerText = state.n1.toFixed(3);
+            document.getElementById('val-n2').innerText = state.n2.toFixed(3);
+            document.getElementById('val-angle').innerText = state.launchAngle.toFixed(1) + "°";
+            document.getElementById('val-bend').innerText = state.bendRadius === 0 ? "0.0 (Straight)" : state.bendRadius.toFixed(2);
+            document.getElementById('val-length').innerText = state.length.toFixed(1) + " km";
+
+            // Formula Calculations
+            const criticalAngleRad = Math.asin(state.n2 / state.n1);
+            const criticalAngleDeg = (criticalAngleRad * 180) / Math.PI;
+
+            const na = Math.sqrt(Math.pow(state.n1, 2) - Math.pow(state.n2, 2));
+            const acceptAngleRad = Math.asin(na);
+            const acceptAngleDeg = (acceptAngleRad * 180) / Math.PI;
+
+            const isTIR = state.launchAngle >= criticalAngleDeg;
+
+            // Power Loss Calculation (Beer-Lambert + Bend Loss)
+            const alphaDb = state.noise; // dB/km
+            const lengthKm = state.length;
+            const bendLossDb = state.bendRadius * 4.2;
+            const totalLossDb = (alphaDb * lengthKm) + bendLossDb;
+
+            let powerOutPct = Math.pow(10, -totalLossDb / 10) * 100;
+            if (!isTIR) powerOutPct = 0; // Lost due to refraction
+
+            // HUD Update
+            document.getElementById('hud-angle').innerText = state.launchAngle.toFixed(1) + "°";
+            document.getElementById('hud-critical').innerText = criticalAngleDeg.toFixed(1) + "°";
+            document.getElementById('hud-na').innerText = na.toFixed(3);
+            document.getElementById('hud-power').innerText = powerOutPct.toFixed(1) + "%";
+
+            // Math Step Breakdown Update
+            document.getElementById('calc-step-critical').innerHTML = `arcsin(${state.n2.toFixed(3)} / ${state.n1.toFixed(3)}) = <span class="text-cyan-400 font-bold">${criticalAngleDeg.toFixed(2)}°</span>`;
+            document.getElementById('calc-step-na').innerHTML = `√(${state.n1.toFixed(3)}² - ${state.n2.toFixed(3)}²) = <span class="text-emerald-400 font-bold">${na.toFixed(3)}</span>`;
+            document.getElementById('calc-step-accept').innerHTML = `arcsin(${na.toFixed(3)} / 1.0) = <span class="text-violet-400 font-bold">${acceptAngleDeg.toFixed(2)}°</span>`;
+
+            // TIR Status Badge
+            const badge = document.getElementById('tir-status-badge');
+            const badgeText = document.getElementById('tir-status-text');
+            if (isTIR) {
+                badge.className = "w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse";
+                badgeText.innerText = "TIR Active (Guided Beam)";
+                badgeText.className = "text-emerald-400 font-semibold";
+            } else {
+                badge.className = "w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping";
+                badgeText.innerText = "Refraction Leak (No Guidance)";
+                badgeText.className = "text-rose-400 font-semibold";
+            }
+
+            // Update 3D Geometry
+            buildFiberGeometry();
+        }
+
+        // ================= PRESETS =================
+        function applyPreset(type) {
+            switchTab('sim');
+            if (type === 'tir_ideal') {
+                document.getElementById('input-n1').value = 1.480;
+                document.getElementById('input-n2').value = 1.440;
+                document.getElementById('input-angle').value = 80.0;
+                document.getElementById('input-bend').value = 0.0;
+            } else if (type === 'refraction_leak') {
+                document.getElementById('input-n1').value = 1.480;
+                document.getElementById('input-n2').value = 1.440;
+                document.getElementById('input-angle').value = 45.0; // below θc
+                document.getElementById('input-bend').value = 0.0;
+            } else if (type === 'bend_loss') {
+                document.getElementById('input-n1').value = 1.480;
+                document.getElementById('input-n2').value = 1.440;
+                document.getElementById('input-angle').value = 75.0;
+                document.getElementById('input-bend').value = 1.2;
+            } else if (type === 'telecom_std') {
+                document.getElementById('input-n1').value = 1.468;
+                document.getElementById('input-n2').value = 1.462;
+                document.getElementById('input-angle').value = 85.0;
+                document.getElementById('input-bend').value = 0.0;
+                setWavelength(1550);
+            } else if (type === 'high_na') {
+                document.getElementById('input-n1').value = 1.600;
+                document.getElementById('input-n2').value = 1.400;
+                document.getElementById('input-angle').value = 70.0;
+                document.getElementById('input-bend').value = 0.0;
+            } else if (type === 'plastic_pof') {
+                document.getElementById('input-n1').value = 1.490;
+                document.getElementById('input-n2').value = 1.410;
+                document.getElementById('input-angle').value = 72.0;
+                document.getElementById('input-bend').value = 0.2;
+            } else if (type === 'critical_threshold') {
+                document.getElementById('input-n1').value = 1.500;
+                document.getElementById('input-n2').value = 1.330;
+                const critical = (Math.asin(1.330 / 1.500) * 180) / Math.PI;
+                document.getElementById('input-angle').value = critical.toFixed(1);
+                document.getElementById('input-bend').value = 0.0;
+            }
+            updatePhysicsEngine();
+        }
+
+        // ================= SIGNAL TRANSMISSION & RECEIVER LAB =================
+        function processSignalTransmission() {
+            const inputText = document.getElementById('tx-input-text').value || "A";
+            const bitrateGbps = parseFloat(document.getElementById('input-bitrate').value);
+            const noiseDb = parseFloat(document.getElementById('input-noise').value);
+
+            document.getElementById('val-bitrate').innerText = bitrateGbps + " Gbps";
+            document.getElementById('val-noise').innerText = noiseDb.toFixed(2) + " dB/km";
+
+            // Convert text to binary string
+            let binaryStr = "";
+            for (let i = 0; i < inputText.length; i++) {
+                const bin = inputText.charCodeAt(i).toString(2).padStart(8, '0');
+                binaryStr += bin;
+            }
+
+            document.getElementById('sig-bit-count').innerText = binaryStr.length + " bits";
+            document.getElementById('rx-bitstream').innerText = binaryStr.match(/.{1,8}/g)?.join(' ') || binaryStr;
+
+            // Compute SNR & BER
+            const snrDb = Math.max(0, 35 - (noiseDb * 15) - (state.bendRadius * 12));
+            const qFactor = (snrDb / 4.1).toFixed(2);
+            let ber = Math.pow(10, -Math.max(1, snrDb / 2.2));
+
+            document.getElementById('sig-snr').innerText = snrDb.toFixed(1) + " dB";
+            document.getElementById('sig-qfactor').innerText = qFactor;
+            document.getElementById('sig-ber').innerText = ber < 1e-12 ? "< 1.0e-12" : ber.toExponential(2);
+
+            // Corrupt message if noise is too high
+            let receivedText = inputText;
+            const rxStatusTag = document.getElementById('rx-status-tag');
+            const rxTextElem = document.getElementById('rx-decoded-text');
+
+            if (snrDb < 12) {
+                // High Error Rate
+                let corrupted = "";
+                for (let i = 0; i < inputText.length; i++) {
+                    if (Math.random() < 0.4) {
+                        corrupted += String.fromCharCode(inputText.charCodeAt(i) + 1);
+                    } else {
+                        corrupted += inputText[i];
+                    }
+                }
+                receivedText = corrupted;
+                rxStatusTag.className = "text-xs font-mono px-2 py-0.5 rounded bg-rose-950 text-rose-400 border border-rose-800";
+                rxStatusTag.innerText = "Signal Degraded (Bit Errors)";
+                rxTextElem.className = "text-rose-400 font-bold animate-pulse";
+            } else {
+                rxStatusTag.className = "text-xs font-mono px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 border border-emerald-800";
+                rxStatusTag.innerText = "100% Signal Integrity";
+                rxTextElem.className = "text-emerald-400 font-bold";
+            }
+
+            rxTextElem.innerText = receivedText;
+
+            // Draw Scope Waveform
+            drawOscilloscope(binaryStr, snrDb);
+        }
+
+        function drawOscilloscope(bitstream, snrDb) {
+            const canvas = document.getElementById('scopeCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+            
+            // Handle DPI
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+
+            const width = canvas.width;
+            const height = canvas.height;
+
+            ctx.clearRect(0, 0, width, height);
+
+            // Draw Oscilloscope Grid
+            ctx.strokeStyle = "rgba(30, 41, 59, 0.6)";
+            ctx.lineWidth = 1;
+            const gridSpacing = 25;
+            for (let x = 0; x < width; x += gridSpacing) {
+                ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, height); ctx.stroke();
+            }
+            for (let y = 0; y < height; y += gridSpacing) {
+                ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(width, y); ctx.stroke();
+            }
+
+            const bitsToShow = Math.min(24, bitstream.length);
+            const bitWidth = width / bitsToShow;
+
+            // Draw Tx Waveform (Cyan)
+            ctx.strokeStyle = "#06b6d4";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            for (let i = 0; i < bitsToShow; i++) {
+                const bit = bitstream[i];
+                const y = bit === '1' ? height * 0.25 : height * 0.45;
+                const xStart = i * bitWidth;
+                const xEnd = (i + 1) * bitWidth;
+
+                if (i === 0) ctx.moveTo(xStart, y);
+                else ctx.lineTo(xStart, y);
+                ctx.lineTo(xEnd, y);
+            }
+            ctx.stroke();
+
+            // Draw Rx Waveform with Noise (Emerald or Amber/Rose)
+            const noiseLevel = Math.max(2, (30 - snrDb) * 1.5);
+            ctx.strokeStyle = snrDb < 12 ? "#f43f5e" : "#10b981";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            for (let i = 0; i < bitsToShow; i++) {
+                const bit = bitstream[i];
+                const baseY = bit === '1' ? height * 0.65 : height * 0.85;
+                const xStart = i * bitWidth;
+                const xEnd = (i + 1) * bitWidth;
+
+                for (let x = xStart; x <= xEnd; x += 3) {
+                    const noiseY = (Math.random() - 0.5) * noiseLevel;
+                    if (x === xStart && i === 0) ctx.moveTo(x, baseY + noiseY);
+                    else ctx.lineTo(x, baseY + noiseY);
+                }
+            }
+            ctx.stroke();
+
+            // Scope Labels
+            ctx.fillStyle = "#06b6d4";
+            ctx.font = "10px Fira Code";
+            ctx.fillText("Tx Optical Pulse (Laser Driver)", 10, 18);
+
+            ctx.fillStyle = snrDb < 12 ? "#f43f5e" : "#10b981";
+            ctx.fillText("Rx Photodiode Signal (Channel Noise Applied)", 10, height * 0.58);
+        }
+
+        // ================= CHART.JS ANALYTICS ENGINE =================
+        function renderCharts() {
+            // Chart 1: Angle vs Transmission
+            const ctxAngle = document.getElementById('chartAngle')?.getContext('2d');
+            if (ctxAngle && !chartAngle) {
+                const angles = Array.from({length: 40}, (_, i) => 50 + i);
+                const crit = (Math.asin(state.n2 / state.n1) * 180) / Math.PI;
+                const dataTIR = angles.map(a => a >= crit ? 100 : Math.pow(a / crit, 4) * 20);
+
+                chartAngle = new Chart(ctxAngle, {
+                    type: 'line',
+                    data: {
+                        labels: angles.map(a => a + '°'),
+                        datasets: [{
+                            label: 'Transmission %',
+                            data: dataTIR,
+                            borderColor: '#06b6d4',
+                            backgroundColor: 'rgba(6, 182, 212, 0.1)',
+                            fill: true,
+                            tension: 0.3
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { ticks: { color: '#64748b', font: { size: 9 } } },
+                            y: { ticks: { color: '#64748b', font: { size: 9 } }, max: 100 }
+                        }
+                    }
+                });
+            }
+
+            // Chart 2: Bend Radius vs Loss
+            const ctxBend = document.getElementById('chartBend')?.getContext('2d');
+            if (ctxBend && !chartBend) {
+                const radii = [0, 0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.5];
+                const bendLosses = radii.map(r => r * 4.2);
+
+                chartBend = new Chart(ctxBend, {
+                    type: 'bar',
+                    data: {
+                        labels: radii.map(r => r + ' mm'),
+                        datasets: [{
+                            label: 'Bend Loss (dB)',
+                            data: bendLosses,
+                            backgroundColor: '#f59e0b',
+                            borderRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { ticks: { color: '#64748b', font: { size: 9 } } },
+                            y: { ticks: { color: '#64748b', font: { size: 9 } } }
+                        }
+                    }
+                });
+            }
+
+            // Chart 3: Length vs Optical Power
+            const ctxPower = document.getElementById('chartPower')?.getContext('2d');
+            if (ctxPower && !chartPower) {
+                const lengths = [0, 5, 10, 20, 30, 40, 50];
+                const powers = lengths.map(l => Math.pow(10, -(0.18 * l) / 10) * 100);
+
+                chartPower = new Chart(ctxPower, {
+                    type: 'line',
+                    data: {
+                        labels: lengths.map(l => l + ' km'),
+                        datasets: [{
+                            label: 'Power %',
+                            data: powers,
+                            borderColor: '#8b5cf6',
+                            backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                            fill: true,
+                            tension: 0.3
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { display: false } },
+                        scales: {
+                            x: { ticks: { color: '#64748b', font: { size: 9 } } },
+                            y: { ticks: { color: '#64748b', font: { size: 9 } } }
+                        }
+                    }
+                });
+            }
+        }
+
+        // ================= APPLICATION ONLOAD =================
+        window.onload = function() {
+            lucide.createIcons();
+            init3D();
+            updatePhysicsEngine();
+        };
+    </script>
+</body>
+</html>
